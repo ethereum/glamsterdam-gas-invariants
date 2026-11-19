@@ -54,6 +54,9 @@ above 2^24.
 | [INV-7](invariants/inv-7.md) | Gas reserves and stipends sized for today are enough | P | Writing storage after a call costs much more. The 2,300 stipend of `transfer`/`send` cannot create a storage slot | Fixed reserves compared with `gasleft()`; `transfer`/`send` to contracts that write storage; a nonce used up before a call that can fail | Make reserves adjustable, or avoid needing one. Use up a nonce only after checking the call gets the gas signed for |
 | [INV-8](invariants/inv-8.md) | A 7702 delegation in a mined transaction was applied and cannot be reused | A | A delegation that runs out of gas is rolled back, but its transaction is still mined. Anyone can reuse the signed delegation | Wallet `setup` or `initialize` functions that anyone can call. Off-chain: treating a mined transaction as proof the delegation worked | Tie setup to the signature. Check the account's code after the transaction |
 
+For how to handle a failed external call safely (when to revert, retry, check the gas before the call or limit it),
+see [`HANDLING_CALL_FAILURES.md`](HANDLING_CALL_FAILURES.md).
+
 ## Next steps
 
 We are trying to collect feedback in order to have a well-founded discussion on the next ACD about the impact of changing these invariants.

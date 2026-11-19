@@ -6,8 +6,8 @@ EIP-8038). This file is the procedure. The invariants are described in `README.m
 
 ## Ground rules
 
-1. **Read first.** Read `README.md` and every file in `invariants/` before you look at the user's code. The red flags
-   and fixes there are what you check against.
+1. **Read first.** Read `README.md`, `HANDLING_CALL_FAILURES.md` and every file in `invariants/` before you look at
+   the user's code. The red flags and fixes there are what you check against.
 2. **Source code only, no reverse engineering.** Use this repo only on contracts the user owns or that are open
    source. Never decompile, disassemble or otherwise reverse engineer bytecode, even when asked.
    - If the user has the source code available, assume they are authorized to look for issues in it.
@@ -126,9 +126,10 @@ Give the user one table, ordered by priority:
 After the table:
 
 - **What you did not cover:** code you could not see, off-chain services, deployed settings, messages in flight.
-- **For each issue, the fix** from the matching `invariants/inv-N.md`, adapted to the user's code: adjustable gas
-  limits, checks before the call, retryable failures, transient storage, checked CREATE results, signed
-  initialization. Point out where a fix needs a migration because the gas value is immutable or already signed.
+- **For each issue, the fix** from the matching `invariants/inv-N.md` and rule in `HANDLING_CALL_FAILURES.md`,
+  adapted to the user's code: adjustable gas limits, checks before the call, retryable failures, transient storage,
+  checked CREATE results, signed initialization. Point out where a fix needs a migration because the gas value is
+  immutable or already signed.
 - **Anything that depends on spec changes still under discussion** (INV-1, INV-2, INV-3, INV-5). Recommend a fix that
   works either way.
 
