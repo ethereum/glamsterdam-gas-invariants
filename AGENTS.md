@@ -2,7 +2,7 @@
 
 A developer has pointed you at this repo to check *their own* code for the Glamsterdam gas changes (EIP-8037 and
 EIP-8038). This file is the procedure. The invariants are described in `README.md` and in `invariants/inv-1.md` to
-`invariants/inv-8.md`.
+`invariants/inv-10.md`.
 
 ## Ground rules
 
@@ -31,7 +31,8 @@ Gas assumptions live in more places than the contracts. List:
 - **Contracts:** especially ones that call other contracts, catch failures, meter gas, deploy contracts or serve as
   EIP-7702 delegates.
 - **Off-chain senders:** relayers, keepers, bots, oracle reporters, deploy scripts, backend wallets, front ends. Look
-  for fixed gas limits, fixed margins and gas estimation code.
+  for fixed gas limits, fixed margins and gas estimation code. An estimate is not proof the work succeeds
+  ([INV-10](invariants/inv-10.md)).
 - **Signed or stored gas values:** meta-transactions, multisig transactions, cross-chain messages, per-request
   callback limits, config set by governance.
 
@@ -53,6 +54,7 @@ assembly.
 | INV-5 (gas metering) | two `gasleft\(\)` readings in one function, `unchecked` near `gasleft`, `gasUsed`, `startGas`, `gasStart` |
 | INV-7 (reserves, stipends) | `RESERVE`, `gasleft\(\) *>=?`, `\.transfer\(`, `\.send\(`, nonce or "executed" writes before a call |
 | INV-8 (7702) | `initialize\(`, `setup\(`, `0xef0100`. Off-chain: `authorizationList`, type-4 or `0x04` transactions, `signAuthorization` |
+| INV-10 (gas estimates) | Off-chain: `estimateGas`, `eth_estimateGas`, `estimate_gas`, `EstimateGas`, `gasLimit` set from an estimate, margins (`\* ?1\.[0-9]`, `\* ?1[0-9]{1,2}n? ?/ ?10{1,2}n?`, `mul\(1[0-9]+\)`, `[Gg]as[_ ]?[Mm]ultiplier`, `GAS_BUFFER`, `gasBuffer`), `staticCall`/`eth_call` loops that search for a gas limit. On-chain: the contracts those transactions call that catch failures (see INV-1, INV-6) |
 
 ## Step 3: Triage each hit
 
@@ -114,6 +116,9 @@ When you can test:
   what was really spent.
 - **For INV-8**, send an underfunded delegation transaction to an empty account. Check that it is mined with status 0
   and that the account has no code. Then check whether another sender can reuse the authorization and call setup.
+- **For INV-10**, run the user's estimator (or `eth_estimateGas`) under Glamsterdam rules, then run the transaction at
+  the gas it would send. Check the outcome of the inner work, not just the status. Compare it with the outcome at 2^24
+  and above 2^24: if the work is done only above 2^24, a capped call depends on the reservoir (INV-4).
 - **Compare with the current rules (Osaka)** where you can, so that you report only what the fork changes.
 
 ## Step 6: Report
