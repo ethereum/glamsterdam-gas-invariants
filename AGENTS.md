@@ -1,8 +1,8 @@
 # Instructions for agents
 
-A developer has pointed you at this repo to check *their own* code for the Glamsterdam gas changes (EIP-8037 and
-EIP-8038). This file is the procedure. The invariants are described in `README.md` and in `invariants/inv-1.md` to
-`invariants/inv-8.md`.
+A developer has pointed you at this repo to check *their own* code for the Glamsterdam gas changes (EIP-8037,
+EIP-8038 and EIP-2780). This file is the procedure. The invariants are described in `README.md` and in
+`invariants/inv-1.md` to `invariants/inv-9.md`.
 
 ## Ground rules
 
@@ -32,8 +32,12 @@ Gas assumptions live in more places than the contracts. List:
   EIP-7702 delegates.
 - **Off-chain senders:** relayers, keepers, bots, oracle reporters, deploy scripts, backend wallets, front ends. Look
   for fixed gas limits, fixed margins and gas estimation code.
+- **Off-chain receivers:** deposit watchers, payment processors and indexers that credit incoming ETH. Look for
+  code that trusts a mined transaction without reading its receipt status.
 - **Signed or stored gas values:** meta-transactions, multisig transactions, cross-chain messages, per-request
-  callback limits, config set by governance.
+  callback limits, config set by governance. Also signed transactions held for later broadcast: their gas limit is
+  fixed. See "Pre-signed transactions and other signed gas values" in `README.md` and
+  [INV-9](invariants/inv-9.md#pre-signed-transactions).
 
 Ask the user for anything outside the repo you were given: off-chain services, deployed settings, messages already
 in flight.
@@ -53,6 +57,7 @@ assembly.
 | INV-5 (gas metering) | two `gasleft\(\)` readings in one function, `unchecked` near `gasleft`, `gasUsed`, `startGas`, `gasStart` |
 | INV-7 (reserves, stipends) | `RESERVE`, `gasleft\(\) *>=?`, `\.transfer\(`, `\.send\(`, nonce or "executed" writes before a call |
 | INV-8 (7702) | `initialize\(`, `setup\(`, `0xef0100`. Off-chain: `authorizationList`, type-4 or `0x04` transactions, `signAuthorization` |
+| INV-9 (21,000-gas transfers) | Off-chain: `21_?000`, `21,000`, `0x5208`, `TxGas`, `SIMPLE_SEND`, "no code" checks before sending ETH; deposit scanning (`getBlock\(.*true`, `prefetchedTransactions`, `eth_getBlockByNumber`) without `status`. Stored signed transactions (`rawTransaction`, `signedTx`, `serialized`) |
 
 ## Step 3: Triage each hit
 
@@ -88,6 +93,7 @@ Work out the gas the path needs under Glamsterdam and compare it with the gas it
 | New slot, cold | 22,100 | 110,020 |
 | Existing slot update, warm / cold | 2,900 / 5,000 | 10,100 / 12,100 |
 | New account (value transfer) | 25,000 | 183,600 plus execution |
+| Plain ETH transfer transaction to an empty address | 21,000 | 204,600 (21,000 to an existing EOA) |
 | CREATE / CREATE2 to an empty address | 32,000 | 195,600 (12,000 if the address already holds ETH) |
 | Code | 200 per byte | 1,530 per byte |
 
@@ -114,6 +120,8 @@ When you can test:
   what was really spent.
 - **For INV-8**, send an underfunded delegation transaction to an empty account. Check that it is mined with status 0
   and that the account has no code. Then check whether another sender can reuse the authorization and call setup.
+- **For INV-9**, send a 21,000-gas ETH transfer to an empty address. Check that it is mined with status 0, that the
+  recipient's balance does not change, and that the user's deposit watcher or payment system credits nothing.
 - **Compare with the current rules (Osaka)** where you can, so that you report only what the fork changes.
 
 ## Step 6: Report

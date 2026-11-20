@@ -29,6 +29,7 @@ These values were measured in EELS on the pinned Amsterdam spec. They change if 
 | SSTORE to a new slot (zero to non-zero), cold | 22,100 | 2,100 + 10,000 + **97,920** state gas = 110,020 |
 | SSTORE to an existing slot, warm / cold (EIP-8038) | 2,900 / 5,000 | 10,100 / 12,100 |
 | New account: value transfer to an empty address | 25,000 | **183,600** state gas plus execution |
+| Plain ETH transfer (a transaction, not a call) to an empty address | 21,000 | 21,000 + **183,600** state gas = 204,600. With less, it is mined with status 0 |
 | CREATE / CREATE2 to an empty address (excluding init code and code deposit) | 32,000 | 12,000 + **183,600** state gas = 195,600. If the address already holds ETH: 12,000 |
 | Code deposit | 200 per byte | **1,530** per byte, as state gas |
 | EIP-7702 authorization for an empty authority | 25,000 | 235,606: 7,816 intrinsic, then at runtime 9,000 + **218,790** state gas (183,600 new account + 35,190 delegation) |
@@ -38,7 +39,9 @@ These values were measured in EELS on the pinned Amsterdam spec. They change if 
 
 **Type:**
 - **Price (P)**: any change in gas prices would break this;
-- **Accounting (A)**: comes from EIP-8037's new way of tracking gas.
+- **Accounting (A)**: comes from the new way of tracking gas in EIP-8037 and EIP-2780.
+
+An invariant can be both.
 
 **Reservoir:** storage gas kept separate from normal gas. It exists only when a transaction's gas limit is
 above 2^24.
@@ -53,6 +56,20 @@ above 2^24.
 | [INV-6](invariants/inv-6.md) | After a call runs out of gas, the gas left over (1/64) is too little to do anything | P | At the new prices, that leftover can be enough to finish and record a failure | A call with no gas check, followed by code that marks the item done for good. Gas estimates can land in this range | Check there is enough gas before the call, and let failures be retried |
 | [INV-7](invariants/inv-7.md) | Gas reserves and stipends sized for today are enough | P | Writing storage after a call costs much more. The 2,300 stipend of `transfer`/`send` cannot create a storage slot | Fixed reserves compared with `gasleft()`; `transfer`/`send` to contracts that write storage; a nonce used up before a call that can fail | Make reserves adjustable, or avoid needing one. Use up a nonce only after checking the call gets the gas signed for |
 | [INV-8](invariants/inv-8.md) | A 7702 delegation in a mined transaction was applied and cannot be reused | A | A delegation that runs out of gas is rolled back, but its transaction is still mined. Anyone can reuse the signed delegation | Wallet `setup` or `initialize` functions that anyone can call. Off-chain: treating a mined transaction as proof the delegation worked | Tie setup to the signature. Check the account's code after the transaction |
+| [INV-9](invariants/inv-9.md) | 21,000 gas is enough to send ETH to an EOA, and such a transfer cannot fail once mined | P, A | Sending ETH to an address that does not exist costs 204,600. With 21,000, or any limit below 204,600, the transaction is mined with status 0: the fee is paid and the nonce used up, and no ETH moves | A fixed `gasLimit: 21000` in wallets, payouts, faucets and pre-signed transactions; deposit watchers that credit mined transactions without reading the receipt status | Estimate every transfer. Check the receipt status (or the EIP-7708 log) before crediting or marking paid. Re-sign pre-signed transactions |
+
+## Pre-signed transactions and other signed gas values
+
+Anything signed before the fork and used after it keeps pre-fork gas assumptions. This cuts across several invariants:
+
+- **Signed transactions held for later broadcast:** queued payouts, custody approval flows, offline and air-gapped
+  signing, inheritance and recovery transactions. Their gas limit is fixed. A plain ETH transfer with 21,000 gas
+  to an address that does not exist is now mined with status 0 and uses up its nonce.
+- **Signed messages that carry a gas value:** meta-transactions, multisig transactions (`safeTxGas`), relayed calls
+  and cross-chain messages already in flight. The inner call can now run out of gas, and a nonce or flag may be used
+  up anyway. See [INV-4](invariants/inv-4.md) and [INV-7](invariants/inv-7.md).
+- **Signed 7702 authorizations:** if the transaction runs out of gas while applying the authorization, the
+  authorization is published but still valid. See [INV-8](invariants/inv-8.md).
 
 For how to handle a failed external call safely (when to revert, retry, check the gas before the call or limit it),
 see [`HANDLING_CALL_FAILURES.md`](HANDLING_CALL_FAILURES.md).
